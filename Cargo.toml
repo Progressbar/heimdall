@@ -1,0 +1,23 @@
+[package]
+name = "heimdall"
+version = "0.1.0"
+authors = ["Martin Habovštiak <martin.habovstiak@gmail.com>"]
+
+[dependencies]
+void = "1"
+heimdall-db = { git = "https://github.com/Progressbar/heimdall-db" }
+i2cdev = "0.3"
+rusqlite = "0.7"
+rand = "0.3"
+sysfs_gpio = "0.4"
+
+[dependencies.mifare]
+version = "0.1"
+#git = "https://github.com/Funcoil/mifare-rs"
+path = "../mifare-rs"
+features = ["with_pn532"]
+
+[dependencies.pn532]
+version = "0.1"
+git = "https://github.com/Funcoil/pn532-rs"
+features = ["with_i2c"]

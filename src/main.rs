@@ -167,9 +167,13 @@ fn main() {
             println!("");
 
             let mut id = [0u8; 32];
-            // TODO fix panic
-            id[0..tag.tag_id().len()].copy_from_slice(tag.tag_id());
-            let id = &id[..tag.tag_id().len()];
+            let tid_len = tag.tag_id().len();
+            if tid_len > 32 {
+                println!("Tag has too long ID ({}B)", tid_len);
+                continue;
+            }
+            id[0..tid_len].copy_from_slice(tag.tag_id());
+            let id = &id[..tid_len];
 
             let user = heimdall_db::identify_user(&mut sqlconn, id, |_, data| {
                 let mut rbuf = [0u8; 16];

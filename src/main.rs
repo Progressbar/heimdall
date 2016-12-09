@@ -11,7 +11,6 @@ pub mod error;
 pub mod tags;
 
 use pn532::PN532 as GenericPN532;
-use void::Void;
 
 type PN532 = GenericPN532<pn532::bus::BusyWait<i2cdev::linux::LinuxI2CDevice>>;
 
@@ -71,13 +70,13 @@ fn dump_tags(conn: &mut rusqlite::Connection) -> Result<(), rusqlite::Error> {
 fn add_tag(uid: u32, conn: &mut rusqlite::Connection, device: &mut PN532) -> Result<(), rusqlite::Error> {
     use std::borrow::Cow;
     use pn532::tags::TagBuffer;
-    use mifare::MifareTag;
+    use mifare::{MifareTag, SectorNumber1K, BlockOffset};
     use error::TagError;
     use rand::OsRng;
     use rand::Rng;
 
     // TODO: as param
-    let sector_number = 1;
+    let sector_number = SectorNumber1K::new(1).unwrap();
 
     println!("Put your NFC token near antenna");
 
@@ -86,7 +85,7 @@ fn add_tag(uid: u32, conn: &mut rusqlite::Connection, device: &mut PN532) -> Res
         .map_err(TagError::Comm)
         .and_then(|t| MifareTag::new(t).ok_or(TagError::InvalidTag)).unwrap();
 
-    let mut auth_data: [u8; 23] = [sector_number, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    let mut auth_data: [u8; 23] = [sector_number.into(), 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
     let mut rng = OsRng::new().unwrap();
     rng.fill_bytes(&mut auth_data[1..]);
@@ -108,7 +107,7 @@ fn add_tag(uid: u32, conn: &mut rusqlite::Connection, device: &mut PN532) -> Res
     try!(tag_info.insert(conn));
 
     // Write secret data        
-    sector.write_block(0, auth_data[7..].to_fixed16().unwrap()).unwrap();
+    sector.write_block(BlockOffset::new(0).unwrap(), auth_data[7..].to_fixed16().unwrap()).unwrap();
 
     let mut sector_trailer = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x07, 0x80, 0x69, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF];
     sector_trailer[0..6].copy_from_slice(&auth_data[1..7]);
@@ -121,10 +120,12 @@ fn add_tag(uid: u32, conn: &mut rusqlite::Connection, device: &mut PN532) -> Res
 }
 
 fn main() {
-    use mifare::MifareTag;
+    use mifare::{MifareTag, SectorNumber1K, BlockOffset};
     use pn532::tags::TagBuffer;
-    use error::{TagError, AuthError};
+    use error::{TagError, AuthError, DatabaseError};
     use sysfs_gpio::{Direction, Pin};
+
+    let block_number = BlockOffset::new(0).unwrap();
 
     let mut device = tags::setup().unwrap();
 
@@ -176,13 +177,19 @@ fn main() {
             let id = &id[..tid_len];
 
             let user = heimdall_db::identify_user(&mut sqlconn, id, |_, data| {
+                if data.len() != 1 + 6 + 16 {
+                    return Err(AuthError::Other(DatabaseError::InvalidLength));
+                }
+
+                let sector_number = try!(SectorNumber1K::new(data[0]).ok_or(AuthError::Other(DatabaseError::InvalidSector)));
+
                 let mut rbuf = [0u8; 16];
-                let mut sector = try!(tag.authenticate_sector(data[0], mifare::KeyOption::KeyA, data[1..7].to_fixed6().unwrap()));
-                try!(sector.read_block(0, &mut rbuf));
+                let mut sector = try!(tag.authenticate_sector(sector_number, mifare::KeyOption::KeyA, data[1..7].to_fixed6().unwrap()));
+                try!(sector.read_block(block_number, &mut rbuf));
                 if rbuf == data[7..] {
                     Ok(())
                 } else {
-                    Err(AuthError::InvalidCredentials::<Void>)
+                    Err(AuthError::InvalidCredentials)
                 }
             });
 

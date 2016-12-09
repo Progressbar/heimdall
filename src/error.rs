@@ -65,3 +65,30 @@ impl<E> From<CommError> for AuthError<E> {
         AuthError::Tag(e)
     }
 }
+
+#[derive(Debug)]
+pub enum DatabaseError {
+    InvalidSector,
+    InvalidLength,
+}
+
+impl ::std::fmt::Display for DatabaseError {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        use self::DatabaseError::*;
+
+        match *self {
+            InvalidSector => write!(f, "Data in database contain invalid sector number."),
+            InvalidLength => write!(f, "Data in database has invalid length."),
+        }
+    }
+}
+
+impl ::std::error::Error for DatabaseError {
+    fn description(&self) -> &str {
+        "invalid data in database"
+    }
+
+    fn cause(&self) -> Option<&::std::error::Error> {
+        None
+    }
+}

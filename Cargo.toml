@@ -13,8 +13,8 @@ sysfs_gpio = "0.4"
 
 [dependencies.mifare]
 version = "0.1"
-#git = "https://github.com/Funcoil/mifare-rs"
-path = "../mifare-rs"
+git = "https://github.com/Funcoil/mifare-rs"
+#path = "../mifare-rs"
 features = ["with_pn532"]
 
 [dependencies.pn532]

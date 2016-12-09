@@ -1,4 +1,4 @@
-use ::error::{SetupError, TagError, CommError};
+use ::error::{SetupError, CommError};
 use ::pn532::PN532;
 use ::pn532::tags::{ISO14443AListOptions, ISO14443A};
 use ::pn532::tags::TagBuffer;

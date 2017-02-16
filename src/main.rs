@@ -140,12 +140,20 @@ fn main() {
         _ => (),
     });
 
+    let mut reinit = false;
+
     let mut tag_buf = TagBuffer::new();
     let relay = Pin::new(21);
     relay.with_exported(|| {
         relay.set_direction(Direction::Out).unwrap();
         loop {
             use std::io::Write;
+
+            if reinit {
+                std::thread::sleep(::std::time::Duration::from_millis(60_000));
+                device = tags::setup().unwrap();
+                reinit = false;
+            }
 
             let tag = tags::wait_tag(&mut device, &mut tag_buf)
                 .map_err(TagError::Comm)
@@ -155,6 +163,7 @@ fn main() {
                 Ok(tag) => tag,
                 Err(TagError::Comm(e)) => {
                     let _ = writeln!(std::io::stderr(), "Warning communication failed: {}", e);
+                    reinit = true;
                     continue;
                 },
                 // Silently ignore bad tags
